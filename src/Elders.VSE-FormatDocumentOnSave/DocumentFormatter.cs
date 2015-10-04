@@ -36,8 +36,15 @@ namespace Elders.VSE_FormatDocumentOnSave
 
         private bool CheckIfClangFormatPluginIsInstalled()
         {
-            return true;
-            // TODO: detect correcctly
+            try
+            {
+                if (dte.Commands.Item("Tools.ClangFormat") != null)
+                    return true;
+            }
+            catch (Exception)
+            {
+            }
+            return false;
         }
 
         public void FormatCurrentActiveDocument()
@@ -45,17 +52,17 @@ namespace Elders.VSE_FormatDocumentOnSave
             try
             {
                 var fileName = dte.ActiveDocument.ProjectItem.Name;
-                bool useClangFormat = clangFormatPluginIsInstalled && IsCppFile(fileName);
-                bool useManualSelection = fileName.EndsWith(".cshtml", true, CultureInfo.InvariantCulture);
-                bool useVSFormat = fileName.EndsWith(".cs", true, CultureInfo.InvariantCulture);
+                bool isCppFile = IsCppFile(fileName);
+                bool isCsHtmlFile = fileName.EndsWith(".cshtml", true, CultureInfo.InvariantCulture);
+                bool isCSharpFile = fileName.EndsWith(".cs", true, CultureInfo.InvariantCulture);
 
                 if (dte.ActiveWindow.Kind == "Document")
                 {
-                    if (useClangFormat)
+                    if (clangFormatPluginIsInstalled && isCppFile)
                         FormatClang();
-                    else if (useManualSelection)
+                    else if (isCsHtmlFile)
                         FormatCSHTML();
-                    else if (useVSFormat)
+                    else if (isCSharpFile || isCppFile)
                         dte.ExecuteCommand("Edit.FormatDocument", string.Empty);
                 }
             }
