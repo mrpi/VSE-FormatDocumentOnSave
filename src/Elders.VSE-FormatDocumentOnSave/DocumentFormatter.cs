@@ -11,28 +11,80 @@ namespace Elders.VSE_FormatDocumentOnSave
     {
         private readonly IVsTextManager txtMngr;
         private readonly DTE dte;
+        private readonly bool clangFormatPluginIsInstalled;
 
         public DocumentFormatter(IVsTextManager txtMngr, DTE dte)
         {
             this.txtMngr = txtMngr;
             this.dte = dte;
+            this.clangFormatPluginIsInstalled = CheckIfClangFormatPluginIsInstalled();
+        }
+
+        private bool IsCppFile(string fileName)
+        {
+            return fileName.EndsWith(".cpp", true, CultureInfo.InvariantCulture)
+            || fileName.EndsWith(".hpp", true, CultureInfo.InvariantCulture)
+            || fileName.EndsWith(".cxx", true, CultureInfo.InvariantCulture)
+            || fileName.EndsWith(".hxx", true, CultureInfo.InvariantCulture)
+            || fileName.EndsWith(".c++", true, CultureInfo.InvariantCulture)
+            || fileName.EndsWith(".h++", true, CultureInfo.InvariantCulture)
+            || fileName.EndsWith(".cc", true, CultureInfo.InvariantCulture)
+            || fileName.EndsWith(".hh", true, CultureInfo.InvariantCulture)
+            || fileName.EndsWith(".c", true, CultureInfo.InvariantCulture)
+            || fileName.EndsWith(".h", true, CultureInfo.InvariantCulture);
+        }
+
+        private bool CheckIfClangFormatPluginIsInstalled()
+        {
+            return true;
+            // TODO: detect correcctly
         }
 
         public void FormatCurrentActiveDocument()
         {
             try
             {
-                bool useManualSelection = dte.ActiveDocument.ProjectItem.Name.EndsWith(".cshtml", true, CultureInfo.InvariantCulture);
+                var fileName = dte.ActiveDocument.ProjectItem.Name;
+                bool useClangFormat = clangFormatPluginIsInstalled && IsCppFile(fileName);
+                bool useManualSelection = fileName.EndsWith(".cshtml", true, CultureInfo.InvariantCulture);
+                bool useVSFormat = fileName.EndsWith(".cs", true, CultureInfo.InvariantCulture);
 
                 if (dte.ActiveWindow.Kind == "Document")
                 {
-                    if (useManualSelection)
+                    if (useClangFormat)
+                        FormatClang();
+                    else if (useManualSelection)
                         FormatCSHTML();
-                    else
+                    else if (useVSFormat)
                         dte.ExecuteCommand("Edit.FormatDocument", string.Empty);
                 }
             }
             catch (Exception) { }
+        }
+
+        private void FormatClang()
+        {
+            IVsTextView textViewCurrent;
+            txtMngr.GetActiveView(1, null, out textViewCurrent);    // Gets the TextView (TextEditor) for the current active document
+            int a, b, c, verticalScrollPosition;
+            textViewCurrent.GetScrollInfo(1, out a, out b, out c, out verticalScrollPosition);
+
+            dynamic selection = dte.ActiveDocument.Selection;
+            int line = selection.CurrentLine;
+            int lineLength = selection.ActivePoint.LineLength;
+            int col = selection.CurrentColumn;
+
+            dte.ExecuteCommand("Edit.SelectAll", string.Empty);
+            dte.ExecuteCommand("Tools.ClangFormat", string.Empty);
+
+            if (!selection.IsEmpty)
+                selection.Cancel();
+
+            selection.GoToLine(line);
+            int offset = col - (lineLength - selection.ActivePoint.LineLength);
+            selection.MoveToLineAndOffset(line, offset, false);
+
+            textViewCurrent.SetScrollPosition(1, verticalScrollPosition);
         }
 
         private void FormatCSHTML()
